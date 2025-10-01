@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getDocuments, deleteDocument, DocumentInfo } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { FileText, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 interface DocumentListProps {
     onSelectDocument?: (documentId: string, documentName: string) => void;
@@ -19,6 +20,8 @@ export default function DocumentList({
     const [documents, setDocuments] = useState<DocumentInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [documentToDelete, setDocumentToDelete] = useState<{ id: string, name: string } | null>(null);
 
     const loadDocuments = async () => {
         setIsLoading(true);
@@ -38,20 +41,22 @@ export default function DocumentList({
         loadDocuments();
     }, [refreshTrigger]);
 
-    const handleDelete = async (documentId: string, e: React.MouseEvent) => {
+    const handleDeleteClick = (documentId: string, documentName: string, e: React.MouseEvent) => {
         e.stopPropagation();
+        setDocumentToDelete({ id: documentId, name: documentName });
+        setDeleteModalOpen(true);
+    };
 
-        if (!confirm('Are you sure you want to delete this document?')) {
-            return;
-        }
+    const handleDeleteConfirm = async () => {
+        if (!documentToDelete) return;
 
-        setDeletingId(documentId);
+        setDeletingId(documentToDelete.id);
         try {
-            await deleteDocument(documentId);
-            setDocuments(docs => docs.filter(doc => doc.document_id !== documentId));
+            await deleteDocument(documentToDelete.id);
+            setDocuments(docs => docs.filter(doc => doc.document_id !== documentToDelete.id));
+            setDocumentToDelete(null);
         } catch (error) {
             console.error('Error deleting document:', error);
-            alert('Failed to delete document');
         } finally {
             setDeletingId(null);
         }
@@ -69,27 +74,27 @@ export default function DocumentList({
     if (documents.length === 0) {
         return (
             <div className="text-center p-8 text-gray-500">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 mb-3">
-                    <FileText className="w-8 h-8 text-gray-400" />
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-lg bg-gray-50 border border-gray-200 mb-4">
+                    <FileText className="w-10 h-10 text-gray-400" />
                 </div>
-                <p className="font-medium text-gray-700">No documents uploaded yet</p>
-                <p className="text-sm mt-1 text-gray-500">Upload a PDF to get started</p>
+                <p className="font-medium text-gray-900 text-lg mb-2">No documents uploaded yet</p>
+                <p className="text-sm mt-1 text-gray-500">Upload a PDF document to get started</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-3 p-4">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2 text-base">
                     <span>My Documents</span>
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                    <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-100">
                         {documents.length}
                     </span>
                 </h3>
                 <button
                     onClick={loadDocuments}
-                    className="p-2 hover:bg-blue-50 rounded-lg transition-all hover:shadow-sm active:scale-95"
+                    className="p-2 hover:bg-blue-50 rounded-lg transition-all hover:shadow-sm active:scale-95 border border-gray-200"
                     title="Refresh"
                 >
                     <RefreshCw className="w-4 h-4 text-blue-600" />
@@ -101,54 +106,54 @@ export default function DocumentList({
                     key={doc.document_id}
                     onClick={() => onSelectDocument?.(doc.document_id, doc.filename)}
                     className={`
-                        group p-3.5 rounded-xl border cursor-pointer transition-all animate-fade-in
+                        group p-4 rounded-lg border cursor-pointer transition-all animate-fade-in mb-3
                         ${selectedDocumentId === doc.document_id
-                            ? 'border-blue-400 bg-gradient-to-br from-blue-50/80 to-indigo-50/80 shadow-lg shadow-blue-100/50'
-                            : 'border-gray-200 hover:border-blue-300 bg-white hover:bg-gradient-to-br hover:from-blue-50/30 hover:to-indigo-50/30 hover:shadow-md'
+                            ? 'border-blue-300 bg-blue-50 shadow-md'
+                            : 'border-gray-200 hover:border-blue-200 bg-white hover:bg-blue-50/30 hover:shadow-sm'
                         }
                     `}
                     style={{ animationDelay: `${index * 50}ms` }}
                 >
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className={`p-2.5 rounded-lg transition-all shrink-0 ${selectedDocumentId === doc.document_id
-                                ? 'bg-blue-100 ring-2 ring-blue-200'
-                                : 'bg-gray-100 group-hover:bg-blue-50'
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <div className={`p-3 rounded-lg transition-all shrink-0 ${selectedDocumentId === doc.document_id
+                                ? 'bg-blue-100 border border-blue-200'
+                                : 'bg-gray-50 border border-gray-200 group-hover:bg-blue-50 group-hover:border-blue-200'
                                 }`}>
-                                <FileText className={`w-5 h-5 transition-colors ${selectedDocumentId === doc.document_id ? 'text-blue-600' : 'text-gray-600'
+                                <FileText className={`w-6 h-6 transition-colors ${selectedDocumentId === doc.document_id ? 'text-blue-600' : 'text-gray-600'
                                     }`} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-sm text-gray-900 truncate group-hover:text-blue-700 transition-colors">
+                                <p className="font-semibold text-base text-gray-900 truncate group-hover:text-blue-700 transition-colors mb-2">
                                     {doc.filename}
                                 </p>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${doc.status === 'processed'
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-amber-100 text-amber-700'
+                                <div className="flex items-center flex-wrap gap-2">
+                                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${doc.status === 'processed'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
                                         }`}>
                                         {doc.status}
                                     </span>
-                                    <span className="text-[10px] text-gray-500 px-1.5 py-0.5 bg-gray-100 rounded">
+                                    <span className="text-xs text-gray-500 px-2 py-1 bg-gray-50 rounded-full border border-gray-200">
                                         {doc.chunks_count} chunks
                                     </span>
                                 </div>
-                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                <p className="text-xs text-gray-500 mt-2">
                                     {formatDate(doc.upload_date)}
                                 </p>
                             </div>
                         </div>
 
                         <button
-                            onClick={(e) => handleDelete(doc.document_id, e)}
+                            onClick={(e) => handleDeleteClick(doc.document_id, doc.filename, e)}
                             disabled={deletingId === doc.document_id}
-                            className="p-2 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 shrink-0"
+                            className="p-2.5 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100 hover:scale-105 active:scale-95 shrink-0 border border-transparent hover:border-red-200"
                             title="Delete document"
                         >
                             {deletingId === doc.document_id ? (
-                                <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
+                                <Loader2 className="w-5 h-5 text-red-600 animate-spin" />
                             ) : (
-                                <Trash2 className="w-4 h-4 text-red-500" />
+                                <Trash2 className="w-5 h-5 text-red-500" />
                             )}
                         </button>
                     </div>
@@ -171,6 +176,21 @@ export default function DocumentList({
                     opacity: 0;
                 }
             `}</style>
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={deleteModalOpen}
+                onClose={() => {
+                    setDeleteModalOpen(false);
+                    setDocumentToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Document"
+                message={`Are you sure you want to delete "${documentToDelete?.name}"? This action cannot be undone.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                type="danger"
+            />
         </div>
     );
 }

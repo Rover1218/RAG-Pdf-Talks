@@ -35,28 +35,36 @@ async def chat(request: ChatRequest):
         
         if request.document_id:
             print(f"🔍 Searching for context with document_id: {request.document_id}")
-            search_results = await vector_service.search_similar(
-                query=request.message,
-                top_k=5,
-                document_id=request.document_id
-            )
-            
-            print(f"📊 Found {len(search_results)} results from vector search")
-            context_chunks = [result["text"] for result in search_results]
-            sources = [f"Chunk {result['metadata'].get('chunk_index', '?')}" for result in search_results]
-            
-            if context_chunks:
-                print(f"✅ Context retrieved: {len(context_chunks)} chunks")
-                for i, chunk in enumerate(context_chunks[:2]):
-                    print(f"   Chunk {i+1} preview: {chunk[:100]}...")
-            else:
-                print("⚠️  No context chunks found!")
+            try:
+                search_results = await vector_service.search_similar(
+                    query=request.message,
+                    top_k=5,
+                    document_id=request.document_id
+                )
+                
+                print(f"📊 Found {len(search_results)} results from vector search")
+                if search_results:
+                    context_chunks = [result["text"] for result in search_results if result.get("text")]
+                    sources = [f"Chunk {result['metadata'].get('chunk_index', '?')}" for result in search_results]
+                    
+                    if context_chunks:
+                        print(f"✅ Context retrieved: {len(context_chunks)} chunks")
+                        for i, chunk in enumerate(context_chunks[:2]):
+                            print(f"   Chunk {i+1} preview: {chunk[:100]}...")
+                    else:
+                        print("⚠️ No valid context chunks found in search results")
+                else:
+                    print("⚠️ No search results found for document")
+            except Exception as search_error:
+                print(f"⚠️ Error during vector search: {str(search_error)}")
+                # Continue without context if search fails
         
         # Generate AI response
         response_text = await ai_service.generate_response(
             query=request.message,
             context=context_chunks,
-            conversation_history=history
+            conversation_history=history,
+            document_id=request.document_id
         )
         
         # Update conversation history

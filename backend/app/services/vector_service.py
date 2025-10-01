@@ -122,36 +122,40 @@ class VectorService:
 
             matches = resp.get("matches", [])
             results: List[Dict[str, Any]] = []
+            
+            # Debug the response
+            print(f"🔍 Vector search results: {len(matches)} matches found")
+            if not matches and document_id:
+                print(f"⚠️ No matches found for document_id: {document_id}")
+            
             for m in matches:
                 meta = m.get("metadata", {})
+                chunk_text = meta.get("chunk_text") or meta.get("text") or ""
+                
+                # Skip empty chunks
+                if not chunk_text.strip():
+                    print(f"⚠️ Empty chunk text found in match, skipping")
+                    continue
+                    
                 results.append({
-                    "text": meta.get("chunk_text") or meta.get("text") or "",
+                    "text": chunk_text,
                     "score": float(m.get("score", 0.0)),
                     "metadata": meta,
                 })
-
+                
+            print(f"✅ Returning {len(results)} valid chunks with content")
             return results
         except Exception as e:
             print(f"❌ Error searching Pinecone: {e}")
             return []
 
     async def delete_document(self, document_id: str) -> bool:
-        """Delete all vectors associated with a document"""
+        """Delete all vectors associated with a document from Pinecone"""
         try:
-            # Delete vectors with matching document_id
+            # Pinecone supports deletion by metadata filter
             self.index.delete(filter={"document_id": document_id})
             print(f"✅ Deleted vectors for document: {document_id}")
             return True
         except Exception as e:
             print(f"❌ Error deleting document from Pinecone: {e}")
-            return False
-
-    async def delete_document(self, document_id: str) -> bool:
-        """Delete document vectors from Pinecone by metadata filter"""
-        try:
-            # Pinecone supports deletion by filter
-            self.index.delete(filter={"document_id": document_id})
-            return True
-        except Exception as e:
-            print(f"Error deleting document from Pinecone: {e}")
             return False

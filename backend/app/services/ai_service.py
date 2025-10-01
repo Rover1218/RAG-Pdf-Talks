@@ -24,7 +24,8 @@ class AIService:
         self, 
         query: str, 
         context: List[str], 
-        conversation_history: List[Dict[str, str]] = None
+        conversation_history: List[Dict[str, str]] = None,
+        document_id: str = None
     ) -> str:
         """Generate AI response based on query and context"""
         
@@ -51,21 +52,37 @@ INSTRUCTIONS FOR YOUR RESPONSE:
 
 Provide your engaging, well-structured response:"""
         else:
-            # No context available - let AI know
-            prompt = f"""You are a helpful AI assistant.
+            # Check if this is a document query with no context found
+            if document_id:
+                prompt = f"""You are a helpful, knowledgeable AI assistant.
 
-The user asked: "{query}"
+USER QUESTION: {query}
 
-However, no document is currently selected, so I cannot answer questions about specific documents.
+You were asked to analyze a document, but I couldn't find relevant context in the document to answer this specific question.
 
-Respond in a warm, friendly way (2-3 sentences) explaining:
-1. They need to upload a PDF document first (if they haven't)
-2. Click on a document in the sidebar to select it
-3. Then they can ask questions about it
+INSTRUCTIONS:
+1. Be friendly and apologetic that you couldn't find specific information about this in the document
+2. If the question seems general and you can answer it from your knowledge, provide a helpful response
+3. Suggest the user try rephrasing their question to be more specific to the document content
+4. If appropriate, mention they can try uploading a different document that might contain the information they're looking for
 
-Be encouraging and helpful.
+Provide your response:"""
+            else:
+                # No document context - answer as general AI assistant
+                prompt = f"""You are a helpful, knowledgeable AI assistant.
 
-Your response:"""
+USER QUESTION: {query}
+
+Since no document is currently selected, answer the question using your general knowledge.
+
+INSTRUCTIONS:
+1. Be friendly, conversational, and helpful
+2. Structure your answer clearly with **bold** for key points
+3. Use bullet points (•) or numbered lists when appropriate
+4. If the question is about documents/PDFs, politely mention they can upload a document for document-specific questions
+5. For general questions, provide accurate, helpful information
+
+Provide your response:"""
         
         if self.settings.AI_PROVIDER == "gemini":
             response = self.client.generate_content(prompt)

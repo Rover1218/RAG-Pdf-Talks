@@ -8,6 +8,7 @@ from datetime import datetime
 from app.models.schemas import DocumentUploadResponse, DocumentInfo
 from app.services.document_service import DocumentService
 from app.services.vector_service import VectorService
+from app.core.database import DocumentDatabase
 
 router = APIRouter()
 
@@ -15,8 +16,8 @@ router = APIRouter()
 document_service = DocumentService()
 vector_service = VectorService()
 
-# In-memory document storage (replace with database in production)
-documents_db = {}
+# Initialize persistent database
+db = DocumentDatabase()
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)
@@ -69,8 +70,8 @@ async def upload_document(file: UploadFile = File(...)):
         if not success:
             raise HTTPException(status_code=500, detail="Failed to add documents to vector database")
         
-        # Store document info
-        documents_db[document_id] = {
+        # Store document info in database
+        document_info = {
             "document_id": document_id,
             "filename": file.filename,
             "upload_date": datetime.now().isoformat(),
@@ -78,6 +79,12 @@ async def upload_document(file: UploadFile = File(...)):
             "status": "processed",
             "file_path": file_path
         }
+        
+        db_success = db.add_document(document_info)
+        if not db_success:
+            # Rollback: delete from vector DB if database insert fails
+            await vector_service.delete_document(document_id)
+            raise HTTPException(status_code=500, detail="Failed to save document metadata")
         
         return DocumentUploadResponse(
             document_id=document_id,
@@ -98,7 +105,7 @@ async def get_documents():
     """
     Get list of all uploaded documents.
     """
-    return list(documents_db.values())
+    return db.get_all_documents()
 
 
 @router.get("/{document_id}", response_model=DocumentInfo)
@@ -106,10 +113,11 @@ async def get_document(document_id: str):
     """
     Get information about a specific document.
     """
-    if document_id not in documents_db:
+    document = db.get_document(document_id)
+    if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     
-    return documents_db[document_id]
+    return document
 
 
 @router.delete("/{document_id}")
@@ -117,23 +125,45 @@ async def delete_document(document_id: str):
     """
     Delete a document and its associated vectors.
     """
-    if document_id not in documents_db:
+    # Check if document exists
+    doc_info = db.get_document(document_id)
+    if not doc_info:
         raise HTTPException(status_code=404, detail="Document not found")
     
-    doc_info = documents_db[document_id]
+    errors = []
     
     try:
-        # Delete file
-        if os.path.exists(doc_info["file_path"]):
-            os.remove(doc_info["file_path"])
+        # Step 1: Delete from vector database first (most critical)
+        vector_deleted = await vector_service.delete_document(document_id)
+        if not vector_deleted:
+            errors.append("Failed to delete from vector database")
         
-        # Delete from vector database
-        await vector_service.delete_document(document_id)
+        # Step 2: Delete physical file
+        try:
+            if os.path.exists(doc_info["file_path"]):
+                os.remove(doc_info["file_path"])
+        except Exception as e:
+            errors.append(f"Failed to delete file: {str(e)}")
         
-        # Remove from in-memory storage
-        del documents_db[document_id]
+        # Step 3: Remove from database
+        db_deleted = db.delete_document(document_id)
+        if not db_deleted:
+            errors.append("Failed to delete from database")
         
-        return {"message": "Document deleted successfully", "document_id": document_id}
+        if errors:
+            # Partial success - document was partially deleted
+            return {
+                "message": "Document partially deleted (some operations failed)",
+                "document_id": document_id,
+                "errors": errors,
+                "status": "partial"
+            }
+        
+        return {
+            "message": "Document deleted successfully",
+            "document_id": document_id,
+            "status": "success"
+        }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting document: {str(e)}")

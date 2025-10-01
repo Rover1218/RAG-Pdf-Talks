@@ -2,16 +2,423 @@
 
 > **A comprehensive guide to understanding what's happening and how everything works in the backend and frontend**
 
+**Last Updated:** October 2, 2025  
+**Latest Updates:** Professional white UI theme, in-app confirmation modals, improved document management
+
 ---
 
 ## 📋 Table of Contents
 
+1. [Quick Start](#-quick-start)
+2. [System Overview](#-system-overview)
+3. [Backend Architecture](#-backend-architecture)
+4. [Frontend Architecture](#-frontend-architecture)
+5. [Database & Storage](#-database--storage)
+6. [Complete Data Flows](#-complete-data-flows)
+7. [Technology Stack](#-technology-stack)
+8. [Recent Updates](#-recent-updates)
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.8+
+- Node.js 18+
+- Pinecone account (free tier available)
+- Gemini or Groq API key
+
+### Setup & Run
+
+1. **Clone and Navigate:**
+   ```bash
+   cd "RAG Pdf Talks"
+   ```
+
+2. **Backend Setup:**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
+
+3. **Configure Environment Variables:**
+   
+   Create `backend/.env` file with your API keys:
+   
+   ```env
+   # AI Provider Settings
+   AI_PROVIDER=gemini  # or 'groq'
+   GEMINI_API_KEY=your_gemini_api_key_here
+   GROQ_API_KEY=your_groq_api_key_here
+   
+   # Vector Database Settings
+   VECTOR_DB=pinecone
+   PINECONE_API_KEY=your_pinecone_api_key
+   PINECONE_INDEX_NAME=rag-pdf-chatbot
+   PINECONE_HOST=your_pinecone_host_url
+   
+   # App Settings
+   CHUNK_SIZE=1000
+   CHUNK_OVERLAP=200
+   ```
+   
+   **Get Your API Keys:**
+   - 🔑 Gemini API: https://ai.google.dev/
+   - 🔑 Groq API: https://console.groq.com/
+   - 🔑 Pinecone: https://www.pinecone.io/
+   
+4. **Start Backend:**
+   ```bash
+   uvicorn app.main:app --reload --port 8000
+   ```
+
+5. **Frontend Setup:**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+6. **Access Application:**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - API Docs: http://localhost:8000/docs
+
+---
+
+## � How The Whole System Works
+
+### Complete System Flow (End-to-End)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant Backend
+    participant FileSystem
+    participant VectorDB
+    participant AI
+
+    Note over User,AI: 📤 PHASE 1: Document Upload
+    User->>Frontend: Upload PDF file
+    Frontend->>Backend: POST /documents/upload
+    Backend->>FileSystem: Save PDF (uploads/)
+    Backend->>Backend: Extract text (PyPDF2)
+    Backend->>Backend: Split into chunks
+    Backend->>Backend: Create sparse vectors
+    Backend->>VectorDB: Store vectors + metadata
+    VectorDB-->>Backend: Success
+    Backend-->>Frontend: Document ID + status
+    Frontend-->>User: Show success message
+
+    Note over User,AI: 💬 PHASE 2: Chat Query
+    User->>Frontend: Type question
+    Frontend->>Backend: POST /chat (message + doc_id)
+    Backend->>Backend: Create query vector
+    Backend->>VectorDB: Search similar chunks
+    VectorDB-->>Backend: Top 5 relevant chunks
+    Backend->>Backend: Build prompt (chunks + question)
+    Backend->>AI: Generate response
+    AI-->>Backend: AI-generated answer
+    Backend->>Backend: Save conversation
+    Backend-->>Frontend: Response + conversation_id
+    Frontend-->>User: Display AI answer
+
+    Note over User,AI: 🗑️ PHASE 3: Document Deletion
+    User->>Frontend: Click delete button
+    Frontend->>Frontend: Show confirmation modal
+    User->>Frontend: Confirm deletion
+    Frontend->>Backend: DELETE /documents/{id}
+    Backend->>VectorDB: Delete all chunks
+    Backend->>FileSystem: Delete PDF file
+    Backend-->>Frontend: Success
+    Frontend-->>User: Remove from list
+```
+
+### Backend Architecture Explained
+
+#### Layer 1: Entry Point (main.py)
+```
+┌─────────────────────────────────────────┐
+│         🚀 FastAPI Application          │
+├─────────────────────────────────────────┤
+│  • Initializes web server               │
+│  • Loads environment variables          │
+│  • Sets up CORS for frontend access     │
+│  • Registers API routes                 │
+│  • Provides health check endpoint       │
+└─────────────────────────────────────────┘
+        ↓
+    Routes
+```
+
+#### Layer 2: API Routes
+```
+┌──────────────────┐     ┌──────────────────┐
+│   📄 Documents   │     │   💬 Chat        │
+├──────────────────┤     ├──────────────────┤
+│ POST /upload     │     │ POST /           │
+│ GET /            │     │ GET /{conv_id}   │
+│ GET /{id}        │     │ DELETE /{conv_id}│
+│ DELETE /{id}     │     └──────────────────┘
+│ POST /search     │
+└──────────────────┘
+        ↓                        ↓
+    Services                 Services
+```
+
+#### Layer 3: Business Logic (Services)
+```
+┌────────────────┐  ┌────────────────┐  ┌────────────────┐
+│  📄 Document   │  │  🗄️ Vector     │  │  🤖 AI         │
+│    Service     │  │    Service     │  │    Service     │
+├────────────────┤  ├────────────────┤  ├────────────────┤
+│ • Extract text │  │ • Create       │  │ • Build prompt │
+│ • Chunk text   │  │   vectors      │  │ • Call AI API  │
+│ • Validate PDF │  │ • Search       │  │ • Format       │
+└────────────────┘  │ • Store/Delete │  │   response     │
+                    └────────────────┘  └────────────────┘
+        ↓                   ↓                    ↓
+    File System         Pinecone            Gemini/Groq
+```
+
+### Frontend Architecture Explained
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  🎨 Frontend (Next.js)                  │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │              📄 Main Page (page.tsx)             │  │
+│  │  • Manages overall layout                        │  │
+│  │  • Coordinates component communication           │  │
+│  │  • Handles document selection state              │  │
+│  └──────────────────────────────────────────────────┘  │
+│           ↓                ↓                ↓            │
+│  ┌────────────┐   ┌────────────┐   ┌────────────┐     │
+│  │ 📤 Upload  │   │ 📋 List    │   │ 💬 Chat    │     │
+│  │ Component  │   │ Component  │   │ Component  │     │
+│  └────────────┘   └────────────┘   └────────────┘     │
+│           ↓                ↓                ↓            │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │          ⚡ API Client (lib/api.ts)              │  │
+│  │  • uploadDocument()                              │  │
+│  │  • getDocuments()                                │  │
+│  │  • deleteDocument()                              │  │
+│  │  • sendChatMessage()                             │  │
+│  └──────────────────────────────────────────────────┘  │
+│                          ↓                              │
+└──────────────────────────┼──────────────────────────────┘
+                           ↓
+                    🔧 Backend API
+```
+
+### Data Flow Examples
+
+#### Example 1: Uploading a PDF Document
+
+```
+1. USER ACTION
+   └─ User drags "Research.pdf" onto upload area
+
+2. FRONTEND (DocumentUploader.tsx)
+   ├─ Validates file is PDF
+   ├─ Shows loading spinner
+   └─ Calls api.uploadDocument(file)
+
+3. API CLIENT (lib/api.ts)
+   ├─ Creates FormData
+   ├─ Sends POST to http://localhost:8000/documents/upload
+   └─ Waits for response
+
+4. BACKEND ROUTE (documents.py)
+   ├─ Receives file
+   ├─ Generates UUID: "abc123"
+   └─ Calls document_service.process_pdf()
+
+5. DOCUMENT SERVICE
+   ├─ Saves to: uploads/abc123-Research.pdf
+   ├─ Extracts text: "This research explores..."
+   └─ Splits into chunks: ["This research...", "The methodology...", ...]
+
+6. VECTOR SERVICE
+   ├─ For each chunk:
+   │  ├─ Tokenize: ["research", "explores", ...]
+   │  ├─ Hash tokens: [12345, 67890, ...]
+   │  ├─ Calculate TF: [0.2, 0.15, ...]
+   │  └─ Create sparse vector
+   └─ Batch upsert to Pinecone
+
+7. PINECONE DATABASE
+   ├─ Stores vectors
+   └─ Returns success
+
+8. BACKEND RESPONSE
+   └─ Returns: {document_id: "abc123", chunks_count: 47}
+
+9. FRONTEND UPDATE
+   ├─ Shows success message
+   ├─ Triggers document list refresh
+   └─ Displays "47 chunks processed"
+```
+
+#### Example 2: Asking a Question
+
+```
+1. USER ACTION
+   └─ User types: "What is the main conclusion?"
+
+2. FRONTEND (ChatInterface.tsx)
+   ├─ Adds message to UI
+   └─ Calls api.sendChatMessage()
+
+3. API CLIENT
+   └─ POST /chat
+      {
+        message: "What is the main conclusion?",
+        document_id: "abc123",
+        conversation_id: "conv-456"
+      }
+
+4. BACKEND ROUTE (chat.py)
+   └─ Calls ai_service.generate_response()
+
+5. VECTOR SERVICE SEARCH
+   ├─ Creates query vector from "What is the main conclusion?"
+   ├─ Searches Pinecone with filter: document_id="abc123"
+   └─ Gets results:
+      • Chunk 42 (score: 0.89): "In conclusion, the study shows..."
+      • Chunk 38 (score: 0.76): "The main findings indicate..."
+      • Chunk 15 (score: 0.68): "Summary of results..."
+      • Chunk 29 (score: 0.63): "Key takeaways include..."
+      • Chunk 44 (score: 0.58): "Final thoughts..."
+
+6. AI SERVICE
+   ├─ Builds prompt:
+   │  """
+   │  DOCUMENT CONTEXT:
+   │  In conclusion, the study shows...
+   │  The main findings indicate...
+   │  ...
+   │  
+   │  USER QUESTION: What is the main conclusion?
+   │  
+   │  Provide a comprehensive answer based on the context.
+   │  """
+   ├─ Sends to Gemini/Groq API
+   └─ Receives: "Based on the document, the main conclusion is..."
+
+7. CONVERSATION STORAGE
+   └─ Saves to memory:
+      conversations["conv-456"] = {
+        messages: [
+          {role: "user", content: "What is the main conclusion?"},
+          {role: "assistant", content: "Based on the document..."}
+        ]
+      }
+
+8. BACKEND RESPONSE
+   └─ Returns: {response: "Based on the document...", conversation_id: "conv-456"}
+
+9. FRONTEND UPDATE
+   ├─ Adds AI message to chat
+   └─ User sees answer
+```
+
+#### Example 3: Deleting a Document
+
+```
+1. USER ACTION
+   └─ User hovers over document card, clicks trash icon
+
+2. FRONTEND (DocumentList.tsx)
+   ├─ Shows ConfirmModal:
+   │  "Are you sure you want to delete 'Research.pdf'?"
+   └─ User clicks "Delete"
+
+3. API CLIENT
+   └─ DELETE /documents/abc123
+
+4. BACKEND ROUTE
+   ├─ Calls vector_service.delete_document("abc123")
+   └─ Calls document_service.delete_file("abc123")
+
+5. VECTOR SERVICE
+   └─ Pinecone: Delete all vectors where document_id="abc123"
+
+6. FILE SYSTEM
+   └─ Deletes: uploads/abc123-Research.pdf
+
+7. MEMORY CLEANUP
+   └─ Removes conversations related to "abc123"
+
+8. BACKEND RESPONSE
+   └─ Returns: {success: true}
+
+9. FRONTEND UPDATE
+   ├─ Closes modal
+   ├─ Removes document from list
+   └─ Shows success message
+```
+
+### Key Technologies & Their Roles
+
+| Technology | Role | Why We Use It |
+|------------|------|---------------|
+| **React** | UI Components | Component-based, reusable, fast |
+| **Next.js** | Frontend Framework | SSR, routing, optimized builds |
+| **TailwindCSS** | Styling | Utility-first, consistent design |
+| **FastAPI** | Backend Framework | Fast, async, auto-docs |
+| **Pinecone** | Vector Database | Specialized for similarity search |
+| **Gemini/Groq** | AI Provider | Natural language generation |
+| **PyPDF2** | PDF Processing | Text extraction from PDFs |
+| **Python** | Backend Language | Rich ML/AI ecosystem |
+| **TypeScript** | Frontend Language | Type safety, better DX |
+
+### Performance Characteristics
+
+| Operation | Time | Details |
+|-----------|------|---------|
+| **Upload PDF** | 2-10s | Depends on size, chunking, vector creation |
+| **Vector Search** | 50-200ms | Pinecone sub-second queries |
+| **AI Response** | 1-3s | Depends on prompt size, AI provider |
+| **Delete Document** | 100-500ms | Vector deletion + file removal |
+| **List Documents** | 50-100ms | Memory lookup, very fast |
+
+### Scalability Considerations
+
+**Current Setup (Development):**
+- ✅ Single server
+- ✅ In-memory storage
+- ✅ Local file system
+- ✅ Good for: 1-10 concurrent users
+
+**Production Ready (100+ users):**
+- 🔄 Load balancer
+- 🔄 PostgreSQL for metadata
+- 🔄 Redis for caching/sessions
+- 🔄 S3 for file storage
+- 🔄 Multiple backend instances
+
+**Enterprise Scale (10,000+ users):**
+- 🔄 Kubernetes orchestration
+- 🔄 CDN for static assets
+- 🔄 Distributed vector database
+- 🔄 Queue system (Celery/RabbitMQ)
+- 🔄 Monitoring & alerting
+
+---
+
+## �📋 Table of Contents
+
 1. [System Overview](#-system-overview)
 2. [Backend Architecture](#-backend-architecture)
 3. [Frontend Architecture](#-frontend-architecture)
-4. [Complete Data Flows](#-complete-data-flows)
-5. [Technology Stack](#-technology-stack)
-6. [Data Stores & Schemas](#-data-stores--schemas)
+4. [Database & Storage](#-database--storage)
+5. [Complete Data Flows](#-complete-data-flows)
+6. [Technology Stack](#-technology-stack)
+7. [Recent Updates](#-recent-updates)
 
 ---
 
@@ -943,7 +1350,320 @@ sequenceDiagram
 
 ---
 
-## 🛠️ Technology Stack
+## � Database & Storage
+
+### Storage Architecture Overview
+
+```mermaid
+graph TB
+    subgraph Application["🖥️ Application Layer"]
+        Backend[⚙️ Backend Services]
+    end
+    
+    subgraph Storage["💾 Storage Systems"]
+        FS[📁 File System<br/>uploads/]
+        Pinecone[(🗄️ Pinecone<br/>Vector Database)]
+        Memory[🧠 In-Memory<br/>Conversation Store]
+    end
+    
+    subgraph Data["📊 Data Types"]
+        PDF[📄 PDF Files]
+        Meta[📋 Metadata]
+        Vectors[🔢 Vector Embeddings]
+        Chats[💬 Chat History]
+    end
+    
+    Backend -->|Store| FS
+    Backend -->|Store| Pinecone
+    Backend -->|Store| Memory
+    
+    PDF -->|Saved to| FS
+    Meta -->|Stored in| Pinecone
+    Vectors -->|Stored in| Pinecone
+    Chats -->|Stored in| Memory
+```
+
+### 1. 📁 File System Storage (uploads/)
+
+**Purpose:** Stores original PDF files uploaded by users
+
+**Structure:**
+```
+backend/
+└── uploads/
+    ├── abc123-document1.pdf
+    ├── def456-document2.pdf
+    └── ghi789-document3.pdf
+```
+
+**What Gets Stored:**
+- ✅ Original PDF files
+- ✅ Filename format: `{document_id}-{original_name}.pdf`
+- ✅ Persistent storage (survives restarts)
+
+**Data Flow:**
+```
+1. User uploads PDF via frontend
+2. Backend receives file in memory
+3. Generates unique UUID (document_id)
+4. Saves to uploads/{document_id}-{filename}.pdf
+5. File path stored for reference
+```
+
+**Storage Properties:**
+- **Persistence:** Yes (files remain until deleted)
+- **Size Limit:** Configurable (default 10MB per file)
+- **Access Pattern:** Read-only after upload
+- **Backup:** Should be backed up regularly
+
+### 2. 🗄️ Pinecone Vector Database
+
+**Purpose:** Stores vector embeddings and enables semantic search
+
+**What is Pinecone?**
+- Cloud-hosted vector database
+- Optimized for similarity search
+- Handles millions of vectors efficiently
+- Provides fast nearest-neighbor search
+
+**Index Configuration:**
+```yaml
+Index Name: rag-pdf-documents
+Dimension: Dynamic (sparse vectors)
+Metric: Dotproduct
+Pods: Starter (free tier)
+```
+
+**Data Structure in Pinecone:**
+
+Each document chunk is stored as a vector record:
+
+```python
+{
+  "id": "abc123-chunk-0",           # Unique identifier
+  "sparse_values": {                 # Vector representation
+    "indices": [1234, 5678, ...],    # Hash indices
+    "values": [0.45, 0.32, ...]      # TF weights
+  },
+  "metadata": {                      # Associated data
+    "document_id": "abc123",
+    "chunk_index": 0,
+    "text": "Original chunk text...",
+    "filename": "document.pdf",
+    "upload_date": "2025-10-02T10:30:00"
+  }
+}
+```
+
+**Why Sparse Vectors?**
+
+| Dense Vectors | Sparse Vectors (Used Here) |
+|---------------|----------------------------|
+| 1000+ dimensions | Only non-zero dimensions |
+| Every position has value | Most positions are 0 |
+| Better for semantic meaning | Better for keyword matching |
+| Requires ML model | Simple TF calculation |
+| Example: [0.23, 0.45, 0.67, ...] | Example: {12: 0.45, 89: 0.32} |
+
+**Vector Creation Process:**
+
+```python
+Text: "Machine learning algorithms process data"
+
+Step 1: Tokenize & Clean
+→ ["machine", "learning", "algorithms", "process", "data"]
+
+Step 2: Hash Each Token (mod 100000)
+hash("machine") % 100000    = 45231
+hash("learning") % 100000   = 78456
+hash("algorithms") % 100000 = 12389
+hash("process") % 100000    = 56742
+hash("data") % 100000       = 91234
+
+Step 3: Calculate TF (Term Frequency)
+Each appears 1/5 times = 0.20
+
+Step 4: Create Sparse Vector
+{
+  "indices": [12389, 45231, 56742, 78456, 91234],
+  "values":  [0.20,  0.20,  0.20,  0.20,  0.20]
+}
+```
+
+**Search Process:**
+
+```
+User Query: "What is machine learning?"
+
+1. Convert query to sparse vector (same process)
+2. Pinecone calculates dot product with all vectors
+3. Similarity Score = dot(query_vector, stored_vector)
+4. Ranks all chunks by score
+5. Returns top 5 matches
+
+Example Results:
+- Chunk 45: Score 0.87 (contains "machine learning algorithms")
+- Chunk 12: Score 0.65 (contains "machine learning basics")
+- Chunk 89: Score 0.52 (contains "algorithms and processing")
+- Chunk 34: Score 0.48 (contains "data processing methods")
+- Chunk 67: Score 0.45 (contains "learning techniques")
+```
+
+**Operations Supported:**
+
+| Operation | Purpose | Example |
+|-----------|---------|---------|
+| `upsert()` | Add/update vectors | Store document chunks |
+| `query()` | Similarity search | Find relevant chunks |
+| `delete()` | Remove vectors | Delete document |
+| `describe_index_stats()` | Get index info | Check vector count |
+
+**Pinecone Namespace Usage:**
+```python
+# Each document can use its own namespace for isolation
+namespace = f"doc-{document_id}"
+
+# Benefits:
+- Easy to delete all chunks of one document
+- Prevent cross-document contamination
+- Better organization
+```
+
+### 3. 🧠 In-Memory Storage (Conversations)
+
+**Purpose:** Temporarily stores chat conversation history
+
+**Structure:**
+```python
+conversations = {
+  "conv-abc123": {
+    "messages": [
+      {"role": "user", "content": "What is this about?"},
+      {"role": "assistant", "content": "This document discusses..."}
+    ],
+    "document_id": "abc123",
+    "created_at": "2025-10-02T10:30:00"
+  },
+  "conv-def456": {
+    "messages": [...],
+    "document_id": "def456",
+    "created_at": "2025-10-02T11:45:00"
+  }
+}
+```
+
+**Properties:**
+- ⚠️ **Non-persistent:** Lost on server restart
+- ✅ **Fast access:** No disk I/O
+- ✅ **Simple structure:** Python dictionary
+- ⚠️ **Memory limited:** Should implement cleanup for production
+
+**Conversation Flow:**
+```
+1. User sends first message
+   → Create new conversation_id
+   → Initialize empty message list
+
+2. User sends follow-up
+   → Load conversation by ID
+   → Append new message
+   → Include history in AI prompt
+   → Append AI response
+
+3. Multiple conversations
+   → Each document can have separate conversation
+   → Context maintained within conversation
+   → Cross-conversation isolation
+```
+
+**Improvement Considerations:**
+
+For production use, consider:
+- ✅ Redis for persistent conversations
+- ✅ Database (PostgreSQL) for long-term storage
+- ✅ TTL (Time To Live) for auto-cleanup
+- ✅ Conversation limits per user
+
+### Database Comparison
+
+| Aspect | File System | Pinecone | In-Memory |
+|--------|-------------|----------|-----------|
+| **Stores** | PDF files | Vector embeddings | Chat history |
+| **Persistence** | ✅ Yes | ✅ Yes | ❌ No |
+| **Speed** | 🐌 Slow | ⚡ Fast | 🚀 Fastest |
+| **Query Type** | None | Similarity search | Key lookup |
+| **Size Limit** | Disk space | Plan-dependent | RAM |
+| **Backup Needed** | ✅ Yes | ✅ Yes | ⚠️ Consider |
+| **Cost** | Free | Free tier/$70+/mo | Free |
+| **Use Case** | Original files | Semantic search | Temp sessions |
+
+### Data Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Backend
+    participant FileSystem
+    participant Pinecone
+    participant Memory
+
+    User->>Backend: Upload PDF
+    Backend->>FileSystem: Save PDF file
+    Backend->>Backend: Extract & chunk text
+    Backend->>Pinecone: Store embeddings
+    Backend->>User: Success (document_id)
+
+    User->>Backend: Ask question
+    Backend->>Pinecone: Search similar chunks
+    Pinecone->>Backend: Return top 5 chunks
+    Backend->>Backend: Generate AI response
+    Backend->>Memory: Store conversation
+    Backend->>User: Return answer
+
+    User->>Backend: Delete document
+    Backend->>Pinecone: Delete all chunks
+    Backend->>FileSystem: Delete PDF file
+    Backend->>Memory: Clear conversations
+    Backend->>User: Deleted successfully
+```
+
+### Storage Costs & Scaling
+
+**Current Setup (Development):**
+- File System: Free (local disk)
+- Pinecone: Free tier (100K vectors, 1 index)
+- Memory: Free (server RAM)
+
+**Production Considerations:**
+
+For scaling to 1000+ users:
+
+1. **File Storage:**
+   - Move to AWS S3 / Google Cloud Storage
+   - Cost: ~$0.023/GB/month
+   - Benefits: CDN, durability, versioning
+
+2. **Vector Database:**
+   - Pinecone Standard: $70/month (1M vectors)
+   - Alternative: Qdrant (self-hosted, cheaper)
+   - Alternative: Weaviate (open-source)
+
+3. **Conversation Storage:**
+   - Redis Cloud: $5-50/month
+   - PostgreSQL: $5-100/month
+   - Benefits: Persistence, search, analytics
+
+**Example Production Stack:**
+```
+- S3 for PDFs: $5/month (100GB)
+- Pinecone Standard: $70/month (5M vectors)
+- Redis Cloud: $10/month (1GB)
+- Total: ~$85/month for 1000 active users
+```
+
+---
+
+## �🛠️ Technology Stack
 
 ### Frontend Stack
 
@@ -1386,6 +2106,208 @@ In-Memory: Lost on restart (use DB in production)
 - Implement queue for long uploads
 - Add rate limiting
 - Enable horizontal scaling
+
+---
+
+## 🆕 Recent Updates
+
+### October 2, 2025 - UI/UX Major Overhaul
+
+#### 🎨 Visual Design Improvements
+
+**Professional White Theme**
+- ✅ Removed dark mode that was causing black footer/backgrounds
+- ✅ Consistent white background throughout the application
+- ✅ Clean, minimal color palette focused on blues and grays
+- ✅ Improved contrast for better readability
+- ✅ Professional gradient accents for headers and buttons
+
+**Component Styling Updates:**
+
+1. **ChatInterface Component**
+   - 🔄 Replaced colorful gradient header with clean white/gray header
+   - 🔄 Updated message bubbles to use solid colors (blue for user, white for AI)
+   - 🔄 Improved loading indicator with subtle animations
+   - 🔄 Cleaner input area with better focus states
+   - 🔄 Enhanced typography and spacing
+
+2. **DocumentList Component**
+   - 🔄 Card-based design with hover effects
+   - 🔄 Better visual hierarchy with icons and badges
+   - 🔄 Status indicators (processed/pending) with color coding
+   - 🔄 Smooth animations on document cards
+   - 🔄 Improved delete button visibility (shows on hover)
+
+3. **Main Page Layout**
+   - 🔄 Professional header with logo and status indicator
+   - 🔄 Clean grid layout (2-column on desktop)
+   - 🔄 Consistent spacing and borders
+   - 🔄 Better mobile responsiveness
+
+#### 🔔 User Experience Enhancements
+
+**In-App Confirmation Modals**
+- ✅ Created `ConfirmModal` component to replace browser alerts
+- ✅ Beautiful modal with backdrop blur effect
+- ✅ Customizable types (danger, warning, info)
+- ✅ Smooth animations (fade-in, scale-in)
+- ✅ Better accessibility with keyboard support
+- ✅ Prevents accidental deletions
+
+**Document Management**
+- ✅ Delete confirmation now shows in-app instead of browser prompt
+- ✅ Document details visible at a glance (chunks count, status, date)
+- ✅ Refresh button to reload document list
+- ✅ Document count badge
+- ✅ Better empty state messaging
+
+**Chat Experience**
+- ✅ Clear active document indicator
+- ✅ Welcome message with usage suggestions
+- ✅ Better message formatting (bold text, bullet points, emojis)
+- ✅ Keyboard shortcuts displayed (Enter to send, Shift+Enter for new line)
+- ✅ Improved timestamp display
+
+#### 🐛 Bug Fixes
+
+**Fixed Backend AI Service**
+- ✅ Improved document context handling
+- ✅ Better prompt engineering for more relevant responses
+- ✅ Fixed issue where AI couldn't answer PDF-specific questions
+- ✅ Enhanced conversation history management
+
+**Fixed Frontend Issues**
+- ✅ Removed dark mode causing black backgrounds
+- ✅ Fixed CSS media query interference
+- ✅ Improved component state management
+- ✅ Better error handling in API calls
+
+#### 📱 Responsive Design
+
+**Mobile Optimization**
+- ✅ Single-column layout on small screens
+- ✅ Touch-friendly buttons and inputs
+- ✅ Proper text wrapping and truncation
+- ✅ Optimized spacing for mobile viewing
+
+**Tablet Optimization**
+- ✅ Adaptive grid layouts
+- ✅ Flexible component sizing
+- ✅ Better use of screen real estate
+
+#### 🎭 Component Architecture
+
+**New Components Created:**
+```typescript
+// ConfirmModal.tsx - Reusable confirmation dialog
+interface ConfirmModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  type?: 'danger' | 'warning' | 'info';
+}
+```
+
+**Updated Component Props:**
+```typescript
+// DocumentList.tsx - Enhanced with modal support
+- Added modal state management
+- Improved delete workflow
+- Better loading states
+
+// ChatInterface.tsx - Professional styling
+- Cleaner color scheme
+- Better message rendering
+- Enhanced header design
+```
+
+#### 🔧 Configuration Updates
+
+**Frontend Configuration:**
+- ✅ Updated `globals.css` to force white theme
+- ✅ Removed dark mode media queries
+- ✅ Added custom animations for modals and fades
+
+**TypeScript Improvements:**
+- ✅ Better type safety in components
+- ✅ Proper interface definitions
+- ✅ Improved error typing
+
+### System Architecture Summary
+
+```mermaid
+graph TB
+    subgraph UI["🎨 Updated UI Layer"]
+        Page[📄 Main Page<br/>White Theme]
+        Upload[📤 Document Uploader<br/>Drag & Drop]
+        List[📋 Document List<br/>Card Design]
+        Chat[💬 Chat Interface<br/>Clean Design]
+        Modal[🔔 Confirm Modal<br/>NEW Component]
+    end
+    
+    subgraph API["⚡ API Layer"]
+        Client[🔌 API Client<br/>lib/api.ts]
+    end
+    
+    subgraph Backend["🔧 Backend Services"]
+        Routes[📡 API Routes]
+        DocSvc[📄 Document Service]
+        VecSvc[🗄️ Vector Service]
+        AISvc[🤖 AI Service<br/>IMPROVED]
+    end
+    
+    Page --> Upload
+    Page --> List
+    Page --> Chat
+    List --> Modal
+    
+    Upload --> Client
+    List --> Client
+    Chat --> Client
+    
+    Client --> Routes
+    Routes --> DocSvc
+    Routes --> VecSvc
+    Routes --> AISvc
+    
+    style Modal fill:#90EE90
+    style AISvc fill:#90EE90
+```
+
+### What Changed vs What Stayed
+
+**Changed ✅:**
+- UI color scheme (dark → white)
+- Confirmation dialogs (browser alerts → in-app modals)
+- Component styling (gradients → clean solid colors)
+- AI prompt engineering (better context handling)
+
+**Stayed the Same ✅:**
+- Backend API structure
+- Database/storage architecture
+- Vector search functionality
+- Core RAG algorithm
+- File upload process
+- Document processing pipeline
+
+### Migration Notes
+
+**For Developers:**
+- No database migration needed
+- No API changes
+- Only frontend components updated
+- Existing uploads still work
+- Conversations still function
+
+**For Users:**
+- Same functionality, better UI
+- No data loss
+- Improved usability
+- Better visual feedback
 
 ---
 
