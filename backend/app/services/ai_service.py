@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+from google import genai
 from groq import Groq
 from typing import List, Dict, Any
 from app.core.config import get_settings
@@ -7,116 +7,144 @@ from app.core.config import get_settings
 class AIService:
     def __init__(self):
         self.settings = get_settings()
+        self.client = None
+        self.model_name = None
         self.setup_ai_client()
     
     def setup_ai_client(self):
         """Initialize AI client based on provider"""
-        if self.settings.AI_PROVIDER == "gemini":
-            genai.configure(api_key=self.settings.GEMINI_API_KEY)
-            # Use Gemini 2.0 Flash - latest and fastest model
-            self.client = genai.GenerativeModel('gemini-2.0-flash-exp')
-        elif self.settings.AI_PROVIDER == "groq":
-            self.client = Groq(api_key=self.settings.GROQ_API_KEY)
-        else:
-            raise ValueError(f"Unsupported AI provider: {self.settings.AI_PROVIDER}")
-    
+        try:
+            if self.settings.AI_PROVIDER == "gemini":
+                # Using the new google-genai SDK Client
+                self.client = genai.Client(api_key=self.settings.GEMINI_API_KEY)
+                self.model_name = 'gemini-2.0-flash'
+                print(f"✅ Gemini client initialized with model: {self.model_name}")
+            elif self.settings.AI_PROVIDER == "groq":
+                self.client = Groq(api_key=self.settings.GROQ_API_KEY)
+                # Updated to state-of-the-art supported model
+                self.model_name = 'llama-3.3-70b-versatile'
+                print(f"✅ Groq client initialized with model: {self.model_name}")
+            else:
+                print(f"⚠️ Unknown AI provider: {self.settings.AI_PROVIDER}")
+        except Exception as e:
+            print(f"❌ Error setting up AI client: {str(e)}")
+
     async def generate_response(
         self, 
         query: str, 
-        context: List[str], 
+        context: List[str] = None, 
         conversation_history: List[Dict[str, str]] = None,
         document_id: str = None
     ) -> str:
-        """Generate AI response based on query and context"""
-        
-        # Build prompt with context
-        if context and len(context) > 0:
-            context_text = "\n\n".join(context)
-            prompt = f"""You are a friendly, knowledgeable AI assistant analyzing a document.
+        """Generate AI response using Gemini or Groq"""
+        try:
+            if not self.client:
+                return "AI Service is not properly initialized. Please check API keys."
 
-DOCUMENT CONTENT:
-{context_text}
-
-USER QUESTION: {query}
-
-INSTRUCTIONS FOR YOUR RESPONSE:
-1. Be conversational and enthusiastic (but professional)
-2. Structure your answer clearly:
-   - Use **bold** for important terms, names, or key points
-   - Use bullet points (start lines with •) for lists
-   - Use numbered lists (1., 2., 3.) for steps or sequences
-   - Add line breaks between sections for readability
-3. Reference specific information from the document
-4. Be comprehensive but concise
-5. Add a brief friendly closing or insight
-
-Provide your engaging, well-structured response:"""
-        else:
-            # Check if this is a document query with no context found
-            if document_id:
-                prompt = f"""You are a helpful, knowledgeable AI assistant.
-
-USER QUESTION: {query}
-
-You were asked to analyze a document, but I couldn't find relevant context in the document to answer this specific question.
-
-INSTRUCTIONS:
-1. Be friendly and apologetic that you couldn't find specific information about this in the document
-2. If the question seems general and you can answer it from your knowledge, provide a helpful response
-3. Suggest the user try rephrasing their question to be more specific to the document content
-4. If appropriate, mention they can try uploading a different document that might contain the information they're looking for
-
-Provide your response:"""
+            # Construct system prompt with stronger document focus
+            system_prompt = (
+                "You are a sophisticated AI document intelligence assistant. "
+                "Your primary role is to help users understand and extract information from their uploaded documents."
+            )
+            
+            if context:
+                context_text = "\n\n".join(context)
+                system_prompt += (
+                    f"\n\nCRITICAL CONTEXT FROM UPLOADED DOCUMENT:\n{context_text}\n\n"
+                    "INSTRUCTIONS: Use ONLY the provided context above to answer the user's question. "
+                    "If the answer is not in the context, state that clearly but try to be helpful with what is available. "
+                    "Maintain a professional and analytical tone."
+                )
             else:
-                # No document context - answer as general AI assistant
-                prompt = f"""You are a helpful, knowledgeable AI assistant.
-
-USER QUESTION: {query}
-
-Since no document is currently selected, answer the question using your general knowledge.
-
-INSTRUCTIONS:
-1. Be friendly, conversational, and helpful
-2. Structure your answer clearly with **bold** for key points
-3. Use bullet points (•) or numbered lists when appropriate
-4. If the question is about documents/PDFs, politely mention they can upload a document for document-specific questions
-5. For general questions, provide accurate, helpful information
-
-Provide your response:"""
-        
-        if self.settings.AI_PROVIDER == "gemini":
-            response = self.client.generate_content(prompt)
-            return response.text
-        elif self.settings.AI_PROVIDER == "groq":
-            messages = [{"role": "user", "content": prompt}]
+                system_prompt += (
+                    "\n\nNOTE: No specific document context was found for this query. "
+                    "Answer to the best of your general knowledge, but remind the user to upload or select a document for specific analysis."
+                )
+            
+            # Construct full prompt
+            prompt_parts = [f"System: {system_prompt}"]
             
             if conversation_history:
-                messages = conversation_history + messages
+                prompt_parts.append("Conversation history:")
+                for msg in conversation_history[-5:]: # Last 5 messages for history
+                    prompt_parts.append(f"{msg['role'].capitalize()}: {msg['content']}")
             
-            response = self.client.chat.completions.create(
-                model="mixtral-8x7b-32768",
-                messages=messages,
-                temperature=0.7,
-                max_tokens=1000
+            prompt_parts.append(f"User: {query}")
+            prompt_parts.append("Assistant:")
+            
+            full_prompt = "\n\n".join(prompt_parts)
+
+            if self.settings.AI_PROVIDER == "gemini":
+                # New SDK syntax: client.models.generate_content
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=full_prompt
+                )
+                
+                # Defensive check for response text
+                if not response or not hasattr(response, 'text') or not response.text:
+                    print(f"⚠️ Gemini returned empty or invalid response. Response: {response}")
+                    return "I'm sorry, the AI was unable to generate a response. This could be due to safety filters or a temporary glitch."
+                    
+                return response.text
+            elif self.settings.AI_PROVIDER == "groq":
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{"role": "user", "content": full_prompt}],
+                    temperature=0.3, # Lower temperature for better RAG groundedness
+                )
+                return response.choices[0].message.content
+            
+            return "Error: AI Provider not configured correctly."
+        except Exception as e:
+            print(f"❌ Error generating AI response: {str(e)}")
+            return f"I'm sorry, I'm having trouble connecting to the AI service. (Error: {str(e)})"
+
+    async def get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Generate dense embeddings for a list of strings"""
+        try:
+            if not self.client or self.settings.AI_PROVIDER != "gemini":
+                # Fallback dummies for non-Gemini or uninitialized
+                return [[0.0] * 768 for _ in texts]
+
+            # New SDK syntax: client.models.embed_content
+            response = self.client.models.embed_content(
+                model='text-embedding-004', 
+                contents=texts
             )
-            return response.choices[0].message.content
-        
-        raise ValueError(f"Unsupported AI provider: {self.settings.AI_PROVIDER}")
-    
+            
+            # Safely extract embeddings
+            embeddings = []
+            for emb in response.embeddings:
+                if hasattr(emb, 'values'):
+                    embeddings.append(list(emb.values))
+                else:
+                    embeddings.append([0.0] * 768)
+            
+            return embeddings
+        except Exception as e:
+            print(f"❌ Error generating embeddings: {str(e)}")
+            return [[0.0] * 768 for _ in texts]
+
     async def generate_title(self, query: str) -> str:
         """Generate a title for the conversation"""
-        prompt = f"Generate a short, descriptive title (max 6 words) for this question: {query}"
-        
-        if self.settings.AI_PROVIDER == "gemini":
-            response = self.client.generate_content(prompt)
-            return response.text.strip()
-        elif self.settings.AI_PROVIDER == "groq":
-            response = self.client.chat.completions.create(
-                model="mixtral-8x7b-32768",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.5,
-                max_tokens=50
-            )
-            return response.choices[0].message.content.strip()
-        
-        return "Document Chat"
+        try:
+            prompt = f"Generate a short, descriptive title (max 6 words) for this question: {query}"
+            
+            if self.settings.AI_PROVIDER == "gemini":
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt
+                )
+                return response.text.strip().strip('"')
+            elif self.settings.AI_PROVIDER == "groq":
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=20
+                )
+                return response.choices[0].message.content.strip().strip('"')
+            
+            return "New Chat"
+        except Exception:
+            return "New Chat"

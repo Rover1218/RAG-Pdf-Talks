@@ -5,7 +5,7 @@ import os
 import uuid
 from datetime import datetime
 
-from app.models.schemas import DocumentUploadResponse, DocumentInfo
+from app.models.schemas import DocumentUploadResponse, DocumentInfo, SearchRequest
 from app.services.document_service import DocumentService
 from app.services.vector_service import VectorService
 from app.core.database import DocumentDatabase
@@ -86,6 +86,14 @@ async def upload_document(file: UploadFile = File(...)):
             await vector_service.delete_document(document_id)
             raise HTTPException(status_code=500, detail="Failed to save document metadata")
         
+        # CLEANUP: Delete local file after successful processing
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"🗑️ Deleted local file after indexing: {file_path}")
+        except Exception as cleanup_err:
+            print(f"⚠️ Failed to delete local file: {cleanup_err}")
+            
         return DocumentUploadResponse(
             document_id=document_id,
             filename=file.filename,
@@ -170,15 +178,15 @@ async def delete_document(document_id: str):
 
 
 @router.post("/search")
-async def search_documents(query: str, document_id: str = None, top_k: int = 5):
+async def search_documents(request: SearchRequest):
     """
     Search for relevant document chunks.
     """
     try:
         results = await vector_service.search_similar(
-            query=query,
-            top_k=top_k,
-            document_id=document_id
+            query=request.query,
+            top_k=request.top_k,
+            document_ids=request.document_ids
         )
         
         return {

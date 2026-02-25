@@ -1,7 +1,7 @@
 'use client';
 
-import { X } from 'lucide-react';
-import { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ConfirmModalProps {
     isOpen: boolean;
@@ -24,7 +24,10 @@ export default function ConfirmModal({
     cancelText = 'Cancel',
     type = 'danger'
 }: ConfirmModalProps) {
+    const [mounted, setMounted] = useState(false);
+
     useEffect(() => {
+        setMounted(true);
         if (isOpen) {
             document.body.style.overflow = 'hidden';
         } else {
@@ -35,107 +38,143 @@ export default function ConfirmModal({
         };
     }, [isOpen]);
 
-    if (!isOpen) return null;
+    if (!isOpen || !mounted) return null;
 
     const handleConfirm = () => {
         onConfirm();
-        onClose();
     };
 
-    const colors = {
-        danger: {
-            bg: 'bg-red-50',
-            border: 'border-red-200',
-            button: 'bg-red-600 hover:bg-red-700',
-            text: 'text-red-600',
-            icon: 'text-red-500'
-        },
-        warning: {
-            bg: 'bg-amber-50',
-            border: 'border-amber-200',
-            button: 'bg-amber-600 hover:bg-amber-700',
-            text: 'text-amber-600',
-            icon: 'text-amber-500'
-        },
-        info: {
-            bg: 'bg-blue-50',
-            border: 'border-blue-200',
-            button: 'bg-blue-600 hover:bg-blue-700',
-            text: 'text-blue-600',
-            icon: 'text-blue-500'
-        }
-    };
-
-    const colorScheme = colors[type];
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            {/* Modal */}
-            <div className="relative bg-white border border-gray-200 rounded-xl shadow-xl max-w-md w-full animate-scale-in">
-                {/* Close button */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                    <X className="w-5 h-5 text-gray-400" />
-                </button>
-
-                {/* Content */}
-                <div className="p-6">
-                    {/* Icon & Title */}
-                    <div className={`inline-flex p-3 rounded-xl ${colorScheme.bg} border ${colorScheme.border} mb-4`}>
-                        <svg className={`w-6 h-6 ${colorScheme.icon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+    const modalContent = (
+        <div className="modal-overlay">
+            <div className="modal-backdrop" onClick={onClose} />
+            <div className={`modal-content animate-scale-in ${type}`}>
+                <div className="modal-header">
+                    <div className="modal-icon">
+                        {type === 'danger' && (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                <line x1="12" y1="9" x2="12" y2="13" />
+                                <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                        )}
+                        {type === 'warning' && (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="12" />
+                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                            </svg>
+                        )}
                     </div>
-
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        {title}
-                    </h3>
-
-                    <p className="text-gray-600 text-sm mb-6">
-                        {message}
-                    </p>
-
-                    {/* Actions */}
-                    <div className="flex gap-3">
-                        <button
-                            onClick={onClose}
-                            className="flex-1 px-4 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-white rounded-xl transition-all border border-white/10 font-medium"
-                        >
-                            {cancelText}
-                        </button>
-                        <button
-                            onClick={handleConfirm}
-                            className={`flex-1 px-4 py-2.5 bg-gradient-to-r ${colorScheme.button} text-white rounded-xl transition-all shadow-lg font-medium`}
-                        >
-                            {confirmText}
-                        </button>
-                    </div>
+                    <h3>{title}</h3>
+                </div>
+                <p className="modal-message">{message}</p>
+                <div className="modal-actions">
+                    <button className="cancel-button" onClick={onClose}>{cancelText}</button>
+                    <button className={`confirm-button ${type}`} onClick={handleConfirm}>{confirmText}</button>
                 </div>
             </div>
 
             <style jsx>{`
+                .modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 9999;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                }
+
+                .modal-backdrop {
+                    position: absolute;
+                    inset: 0;
+                    background: rgba(15, 23, 42, 0.65);
+                    backdrop-filter: blur(8px);
+                }
+
+                .modal-content {
+                    position: relative;
+                    background: var(--color-bg-surface);
+                    border-radius: 20px;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    width: 100%;
+                    max-width: 440px;
+                    padding: 32px;
+                    border: 1px solid var(--color-border);
+                }
+
+                .modal-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                    margin-bottom: 16px;
+                }
+
+                .modal-icon {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
+
+                .danger .modal-icon { background: #FFE4E6; color: #E11D48; }
+                .warning .modal-icon { background: #FEF3C7; color: #D97706; }
+                .info .modal-icon { background: #F1F5F9; color: #3B82F6; }
+
+                h3 { font-size: 20px; font-weight: 700; color: var(--color-text-primary); margin: 0; }
+                .modal-message { 
+                    font-size: 15px; 
+                    color: var(--color-text-secondary); 
+                    margin-bottom: 32px;
+                    line-height: 1.6;
+                }
+
+                .modal-actions {
+                    display: flex;
+                    gap: 12px;
+                }
+
+                .modal-actions button {
+                    flex: 1;
+                    padding: 14px;
+                    border-radius: 12px;
+                    font-size: 15px;
+                    font-weight: 600;
+                    transition: all 200ms ease;
+                }
+
+                .cancel-button {
+                    background: white;
+                    color: #64748B;
+                    border: 1px solid #E2E8F0;
+                }
+
+                .cancel-button:hover { 
+                    background: #F8FAFC;
+                    border-color: #CBD5E1;
+                }
+
+                .confirm-button { color: white; border: none; }
+                .confirm-button.danger { background: #E11D48; }
+                .confirm-button.danger:hover { 
+                    background: #BE123C; 
+                    box-shadow: 0 10px 15px -3px rgba(225, 29, 72, 0.3);
+                    transform: translateY(-1px);
+                }
+                .confirm-button.warning { background: #D97706; }
+                .confirm-button.info { background: #3B82F6; }
+
                 @keyframes scale-in {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.9);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
+                    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+                    to { opacity: 1; transform: scale(1) translateY(0); }
                 }
-                .animate-scale-in {
-                    animation: scale-in 0.2s ease-out;
-                }
+                .animate-scale-in { animation: scale-in 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
             `}</style>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 }

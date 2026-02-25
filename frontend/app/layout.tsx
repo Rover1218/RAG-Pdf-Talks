@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "Upload PDF documents and chat with AI to get instant answers. Powered by RAG (Retrieval Augmented Generation), Gemini AI, and Pinecone vector database.",
 };
 
+import StyledJsxRegistry from "./registry";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,7 +29,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <StyledJsxRegistry>{children}</StyledJsxRegistry>
       </body>
     </html>
   );

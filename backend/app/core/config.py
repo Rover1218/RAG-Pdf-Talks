@@ -5,7 +5,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
     # AI Provider Settings
-    AI_PROVIDER: str = "gemini"  # 'gemini' or 'groq'
+    AI_PROVIDER: str = "groq"  # 'gemini' or 'groq'
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     

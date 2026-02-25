@@ -5,7 +5,7 @@ from datetime import datetime
 # Request Models
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000)
-    document_id: Optional[str] = None
+    document_ids: Optional[List[str]] = Field(default_factory=list)
     conversation_id: Optional[str] = None
 
 class DocumentUploadResponse(BaseModel):
@@ -34,7 +34,7 @@ class DocumentInfo(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
-    document_id: Optional[str] = None
+    document_ids: Optional[List[str]] = Field(default_factory=list)
     top_k: int = Field(default=5, ge=1, le=20)
 
 class SearchResult(BaseModel):
