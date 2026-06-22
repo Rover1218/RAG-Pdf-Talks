@@ -120,14 +120,14 @@ export default function ConfirmModal({
                     flex-shrink: 0;
                 }
 
-                .danger .modal-icon { background: #FFE4E6; color: #E11D48; }
-                .warning .modal-icon { background: #FEF3C7; color: #D97706; }
-                .info .modal-icon { background: #F1F5F9; color: #3B82F6; }
+                .danger .modal-icon { background: var(--color-danger-bg); color: var(--color-danger); }
+                .warning .modal-icon { background: var(--color-warning-bg); color: var(--color-warning); }
+                .info .modal-icon { background: var(--color-accent-soft); color: var(--color-accent-fg); }
 
                 h3 { font-size: 20px; font-weight: 700; color: var(--color-text-primary); margin: 0; }
-                .modal-message { 
-                    font-size: 15px; 
-                    color: var(--color-text-secondary); 
+                .modal-message {
+                    font-size: 15px;
+                    color: var(--color-text-secondary);
                     margin-bottom: 32px;
                     line-height: 1.6;
                 }
@@ -147,25 +147,25 @@ export default function ConfirmModal({
                 }
 
                 .cancel-button {
-                    background: white;
-                    color: #64748B;
-                    border: 1px solid #E2E8F0;
+                    background: var(--color-bg-surface);
+                    color: var(--color-text-secondary);
+                    border: 1px solid var(--color-border);
                 }
 
-                .cancel-button:hover { 
-                    background: #F8FAFC;
-                    border-color: #CBD5E1;
+                .cancel-button:hover {
+                    background: var(--color-bg-subtle);
+                    border-color: var(--color-border-strong);
                 }
 
-                .confirm-button { color: white; border: none; }
-                .confirm-button.danger { background: #E11D48; }
-                .confirm-button.danger:hover { 
-                    background: #BE123C; 
-                    box-shadow: 0 10px 15px -3px rgba(225, 29, 72, 0.3);
+                .confirm-button { color: var(--color-text-on-accent); border: none; }
+                .confirm-button.danger { background: var(--color-danger); }
+                .confirm-button.danger:hover {
+                    background: var(--color-danger-hover);
+                    box-shadow: 0 10px 15px -3px rgba(220, 38, 38, 0.3);
                     transform: translateY(-1px);
                 }
-                .confirm-button.warning { background: #D97706; }
-                .confirm-button.info { background: #3B82F6; }
+                .confirm-button.warning { background: var(--color-warning); }
+                .confirm-button.info { background: var(--color-accent-primary); }
 
                 @keyframes scale-in {
                     from { opacity: 0; transform: scale(0.95) translateY(10px); }

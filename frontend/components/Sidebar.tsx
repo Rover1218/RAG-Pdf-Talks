@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { uploadDocument, getDocuments, deleteDocument, DocumentInfo, DocumentUploadResponse } from '@/lib/api';
+import { uploadDocument, getDocuments, deleteDocument, DocumentInfo } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import ConfirmModal from './ConfirmModal';
 
@@ -301,19 +301,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         }
 
         .refresh-btn:hover {
-            color: var(--color-accent-primary);
-            background: var(--color-icon-bg);
+            color: var(--color-accent-fg);
+            background: var(--color-accent-soft);
         }
 
         .icon-container {
           width: 40px;
           height: 40px;
-          background: var(--color-icon-bg);
+          background: var(--color-accent-soft);
           border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--color-accent-primary);
+          color: var(--color-accent-fg);
         }
 
         .text-container h3 {
@@ -330,7 +330,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         /* Upload Zone */
         .upload-zone {
           border: 2px dashed var(--color-upload-border);
-          background: #FAFBFF;
+          background: var(--color-upload-bg);
           border-radius: 12px;
           padding: 40px 20px;
           text-align: center;
@@ -341,7 +341,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         .upload-zone:hover, .upload-zone.dragging {
           border-color: var(--color-accent-primary);
-          background: #F4F7FF;
+          background: var(--color-upload-bg-hover);
         }
 
         .upload-zone.uploading {
@@ -383,8 +383,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             text-align: center;
         }
 
-        .status-message.success { background: #D1FAE5; color: var(--color-success); }
-        .status-message.error { background: #FEE2E2; color: #EF4444; }
+        .status-message.success { background: var(--color-success-bg); color: var(--color-success); }
+        .status-message.error { background: var(--color-danger-bg); color: var(--color-danger); }
 
         .progress-container {
             width: 100%;
@@ -397,13 +397,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         .uploading-text { 
             font-size: 15px;
             font-weight: 600; 
-            color: var(--color-accent-primary);
+            color: var(--color-accent-fg);
         }
 
         .progress-bar-wrapper {
             width: 100%;
             height: 6px;
-            background: #E5E7EB;
+            background: var(--color-bg-subtle);
             border-radius: 10px;
             overflow: hidden;
             position: relative;
@@ -450,14 +450,14 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         .doc-item.active {
             border-color: var(--color-accent-primary);
-            background: var(--color-icon-bg);
+            background: var(--color-accent-soft);
             box-shadow: var(--shadow-card);
         }
 
         .doc-icon {
             width: 36px;
             height: 36px;
-            background: var(--color-icon-bg);
+            background: var(--color-accent-soft);
             color: var(--color-text-secondary);
             border-radius: 8px;
             display: flex;
@@ -467,7 +467,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         }
 
         .active .doc-icon {
-            color: var(--color-accent-primary);
+            color: var(--color-accent-fg);
             background: var(--color-bg-surface);
         }
 
@@ -503,8 +503,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         .doc-item:hover .delete-btn { opacity: 1; }
 
         .delete-btn:hover {
-            color: #EF4444;
-            background: #FEE2E2;
+            color: var(--color-danger);
+            background: var(--color-danger-bg);
         }
 
         .animate-spin {

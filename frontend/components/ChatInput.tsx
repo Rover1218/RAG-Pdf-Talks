@@ -93,6 +93,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, isLoading }) =>
 
         .input-wrapper:focus-within {
           border-color: var(--color-accent-primary);
+          box-shadow: var(--shadow-card), 0 0 0 3px var(--color-accent-ring);
         }
 
         textarea {

@@ -1,4 +1,5 @@
 import React from 'react';
+import ThemeToggle from './ThemeToggle';
 
 const Header: React.FC = () => {
     return (
@@ -25,6 +26,7 @@ const Header: React.FC = () => {
                     <div className="dot"></div>
                     Live
                 </div>
+                <ThemeToggle />
             </div>
 
             <style jsx>{`
@@ -44,6 +46,37 @@ const Header: React.FC = () => {
         .header-left {
           display: flex;
           align-items: center;
+        }
+
+        .header-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .pill-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: var(--border-radius-full);
+          background: var(--color-success-bg);
+          color: var(--color-success);
+          font-size: 13px;
+          font-weight: 500;
+        }
+
+        .dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--color-success);
+          animation: live-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes live-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.85); }
         }
 
         .logo-container {

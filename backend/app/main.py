@@ -1,3 +1,15 @@
+import sys
+
+# Force UTF-8 stdout/stderr before anything prints. On Windows the default
+# console encoding (cp1252) cannot encode the emoji used in our log/print
+# statements, which would raise UnicodeEncodeError at import time and prevent
+# the server from starting. Reconfiguring here covers every module imported below.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

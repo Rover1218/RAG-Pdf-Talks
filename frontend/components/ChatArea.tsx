@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ChatInput from './ChatInput';
 import { sendChatMessage, ChatMessage, ChatResponse } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { formatAIMessage } from '@/lib/formatMarkdown';
 
 interface ChatAreaProps {
     selectedDocumentIds?: string[];
@@ -117,7 +118,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedDocumentIds = [], documentN
         .welcome-icon {
           width: 80px;
           height: 80px;
-          background: var(--color-icon-bg);
+          background: var(--color-accent-soft);
           color: var(--color-accent-primary);
           border-radius: 50%;
           display: flex;
@@ -140,14 +141,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedDocumentIds = [], documentN
         </div>
     );
 
-    const formatAIContent = (content: string) => {
-        return content
-            .replace(/\*\*(.*?)\*\*/g, '<strong class="highlight">$1</strong>')
-            .replace(/^•\s+(.*?)$/gm, '<div class="list-item"><span class="bullet">•</span><span class="text">$1</span></div>')
-            .replace(/\n\n/g, '<div class="spacer"></div>')
-            .replace(/\n/g, '<br/>');
-    };
-
     const renderActiveChat = () => (
         <div className="chat-messages">
             {messages.map((msg, i) => (
@@ -157,7 +150,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedDocumentIds = [], documentN
                         {msg.role === 'assistant' ? (
                             <div
                                 className="message-content ai-bubble"
-                                dangerouslySetInnerHTML={{ __html: formatAIContent(msg.content) }}
+                                dangerouslySetInnerHTML={{ __html: formatAIMessage(msg.content) }}
                             />
                         ) : (
                             <div className="message-content user-bubble">
@@ -185,10 +178,11 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedDocumentIds = [], documentN
             <div ref={messagesEndRef} />
 
             <style jsx global>{`
-        .highlight { color: var(--color-accent-primary); font-weight: 600; }
-        .list-item { display: flex; gap: 8px; margin: 4px 0; }
-        .bullet { color: var(--color-accent-primary); font-bold: true; }
-        .spacer { height: 12px; }
+        .md-bold { color: var(--color-accent-fg); font-weight: 600; }
+        .md-li { display: flex; gap: 8px; margin: 4px 0; align-items: flex-start; }
+        .md-bullet, .md-num { color: var(--color-accent-fg); font-weight: 700; flex-shrink: 0; }
+        .md-li-text { flex: 1; }
+        .md-spacer { height: 12px; }
       `}</style>
 
             <style jsx>{`
@@ -244,8 +238,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedDocumentIds = [], documentN
         .avatar-small {
           width: 32px;
           height: 32px;
-          background: var(--color-icon-bg);
-          color: var(--color-accent-primary);
+          background: var(--color-accent-soft);
+          color: var(--color-accent-fg);
           border-radius: 50%;
           display: flex;
           align-items: center;
